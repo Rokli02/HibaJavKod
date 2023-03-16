@@ -102,7 +102,7 @@ export class Primitive {
 }
 
 function searchIndexOfNumbers({ primitives, numberatorIndex, numberator = 1, denominatorIndex, denominator}: { primitives: number[], numberatorIndex?: number, numberator?: number, denominatorIndex?: number, denominator: number }) {
-  let canBreak = 0;
+  let canBreak = denominator ? 0 : 1;
 
   if (numberator === 0 || denominator === 0) {
     throw new Error('Nem lehet 0 se a számláló, se a nevező!')
@@ -157,7 +157,7 @@ function searchIndexOfNumbers({ primitives, numberatorIndex, numberator = 1, den
   }
 }
 
-function getPrimeFactorDivision(h: number): PrimeFactorDivision[] {
+export function getPrimeFactorDivision(h: number): PrimeFactorDivision[] {
   let prime: number = 2;
   let power: number = 0;
   const halfOfH = h >> 1;
@@ -179,17 +179,24 @@ function getPrimeFactorDivision(h: number): PrimeFactorDivision[] {
   return pfd;
 }
 
-function getNextPrime(prime: number): number {
-  let nextPrime = ++prime;
+export function getNextPrime(prime: number): number {
+  let nextPrime: number;
+  if (prime % 2 === 0) {
+    nextPrime = ++prime
+  } else {
+    nextPrime = prime + 2;
+  }
   while (!isPrime(nextPrime)) {
-    ++nextPrime;
+    nextPrime += 2;
   }
 
   return nextPrime;
 }
 
-function isPrime(prime: number): boolean {
-  for(let i = 2, s = Math.sqrt(prime); i <= s; i++) {
+export function isPrime(prime: number): boolean {
+  const s = Math.sqrt(prime);
+  if (prime % 2 === 0 && prime !== 2) return false;
+  for(let i = 3; i <= s; i += 2) {
     if(prime % i === 0) return false;
   }
   return prime >= 2;
