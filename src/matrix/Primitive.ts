@@ -51,21 +51,39 @@ export class Primitive {
     options.debug&&console.log('   alphas:', alphaValues);
 
     // Alfákat összeadni, így kapjuk meg az első rendű gammát
-    const firstAlpha = alphaValues.reduce((sum, current) => { return sum *= current }, 1);
-    this.primitives[0] = options.onlyPositivePrimitives && firstAlpha < 0
-      ? (this.base + (firstAlpha % this.base))
-      : (firstAlpha % this.base);
+    const firstGamma = alphaValues.reduce((sum, current) => { return sum *= current }, 1);
+    this.primitives[0] = options.onlyPositivePrimitives && firstGamma < 0
+      ? (this.base + (firstGamma % this.base))
+      : (firstGamma % this.base);
 
     // Az első gammából kiszámítjuk a többit
     for (let i = 1; i < h; i++) {
       this.primitives[i] = (this.primitives[0] * this.primitives[i - 1]) % this.base;
     }
 
+    options.debug&&console.log('Primitive Values: ', this.primitives);
     options.debug&&console.log('\n');
   }
 
   getBase() {
     return this.base;
+  }
+
+  add(n1: number, n2: number) {
+    options.debug&&console.log(`add ${n1} with ${n2}`);
+    const v = (n1 + n2) % this.base;
+    return options.onlyPositivePrimitives && v < 0 ? v + this.base : v;
+  }
+
+  multiply(n1: number, n2: number) {
+    options.debug&&console.log(`multiply ${n1} with ${n2}`);
+    const v = (n1 * n2) % this.base;
+    return options.onlyPositivePrimitives && v < 0 ? v + this.base : v;
+  }
+
+  divide(numberator: number, denominator: number) {
+    options.debug&&console.log(`divide ${numberator} with ${denominator}`);
+    return searchIndexOfNumbers({ primitives: this.primitives, numberator, denominator });
   }
 
   get(index?: number) {
@@ -86,18 +104,7 @@ export class Primitive {
 
   getInverseOf(inverseOf: number) {
     options.debug&&console.log(`get inverse of ${inverseOf}`);
-    if (!this.primitives?.length) {
-      throw new Error('Még nem lettek kiszámítva a primitív elemek!');
-    }
     return searchIndexOfNumbers({ primitives: this.primitives, denominator: inverseOf });
-  }
-
-  getInverseOfNumberatorAndDenominator(numberator: number, denominator: number) {
-    options.debug&&console.log(`get inverse of numberator ${numberator} and denominator ${denominator}`);
-    if (!this.primitives?.length) {
-      throw new Error('Még nem lettek kiszámítva a primitív elemek!');
-    }
-    return searchIndexOfNumbers({ primitives: this.primitives, numberator, denominator });
   }
 }
 
