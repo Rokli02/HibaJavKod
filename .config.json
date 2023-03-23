@@ -1,5 +1,8 @@
 {
-  "debug": false,
+  "debug": {
+    "primitive": false,
+    "matrix": false
+  },
   "onlyPrime": true,
   "onlyPositivePrimitives": true
 }

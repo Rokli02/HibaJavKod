@@ -4,13 +4,13 @@ import options from '../../.config.json';
 // DANGER: ha negatív egy szám, akkor azt alap esetben nem váltja át pozitívvá
 export class Primitive {
   private primitives: number[];
-  private base: number;
+  private readonly base: number;
   constructor(base: number) {
     if (options.onlyPrime && !isPrime(base)) {
       throw new Error('A bázisnak prím számnak kell lennie!');
     }
 
-    options.debug&&console.log('Primitive constructor:');
+    options.debug.primitive&&console.log('Primitive constructor:');
 
     this.primitives = new Array<number>(base - 1);
     this.base = base;
@@ -22,18 +22,18 @@ export class Primitive {
       throw new Error(`A bázisnak (${h}) nem létezik prímtényezős felbontása!`);
     }
 
-    options.debug&&console.log('Prime factors:')
-    options.debug&&primeFactor.forEach((pf) => console.log(`   ${pf.prime}^${pf.power}`))
+    options.debug.primitive&&console.log('Prime factors:')
+    options.debug.primitive&&primeFactor.forEach((pf) => console.log(`   ${pf.prime}^${pf.power}`))
     // Ha bármelyik eleme 0, akkor error -> nem jó bázis (lehet hogy nem primitív)
     // Alfák kiszámolása
     const alphaValues = primeFactor.map((pf, index) => {
       const power = h / pf.prime;
       let beta: number;
 
-      options.debug&&console.log(`   ${(index + 1)}. beta: prime: ${pf.prime}; power: ${power}`);
+      options.debug.primitive&&console.log(`   ${(index + 1)}. beta: prime: ${pf.prime}; power: ${power}`);
       for(let i = 1; i <= h; i++) {
         const f = Math.pow(i, power) - 1;
-        options.debug&&console.log(`\tf${i}: ${f} mod ${this.base} = ${f % this.base}`);
+        options.debug.primitive&&console.log(`\tf${i}: ${f} mod ${this.base} = ${f % this.base}`);
         if (f % this.base !== 0) {
           beta = i;
           break;
@@ -43,12 +43,12 @@ export class Primitive {
       if (!beta) {
         throw new Error(`Nem sikerült béta értéket találni ${pf.prime}^${pf.power} szám esetén!`);
       }
-      options.debug&&console.log(`\tbeta value: ${beta}`);
-      options.debug&&console.log(`\talfa = ${beta}^(${h} / ${pf.prime}^${pf.power}) = ${beta}^(${h / Math.pow(pf.prime, pf.power)}) = ${Math.pow(beta, (h / Math.pow(pf.prime, pf.power)))} = ${Math.pow(beta, (h / Math.pow(pf.prime, pf.power))) % this.base}`);
+      options.debug.primitive&&console.log(`\tbeta value: ${beta}`);
+      options.debug.primitive&&console.log(`\talfa = ${beta}^(${h} / ${pf.prime}^${pf.power}) = ${beta}^(${h / Math.pow(pf.prime, pf.power)}) = ${Math.pow(beta, (h / Math.pow(pf.prime, pf.power)))} = ${Math.pow(beta, (h / Math.pow(pf.prime, pf.power))) % this.base}`);
 
       return Math.pow(beta, (h / Math.pow(pf.prime, pf.power))) % this.base;
     });
-    options.debug&&console.log('   alphas:', alphaValues);
+    options.debug.primitive&&console.log('   alphas:', alphaValues);
 
     // Alfákat összeadni, így kapjuk meg az első rendű gammát
     const firstGamma = alphaValues.reduce((sum, current) => { return sum *= current }, 1);
@@ -61,8 +61,8 @@ export class Primitive {
       this.primitives[i] = (this.primitives[0] * this.primitives[i - 1]) % this.base;
     }
 
-    options.debug&&console.log('Primitive Values: ', this.primitives);
-    options.debug&&console.log('\n');
+    options.debug.primitive&&console.log('Primitive Values: ', this.primitives);
+    options.debug.primitive&&console.log('\n');
   }
 
   getBase() {
@@ -70,20 +70,20 @@ export class Primitive {
   }
 
   add(n1: number, n2: number) {
-    options.debug&&console.log(`add ${n1} with ${n2}`);
+    options.debug.primitive&&console.log(`add ${n1} with ${n2}`);
     const v = (n1 + n2) % this.base;
     return options.onlyPositivePrimitives && v < 0 ? v + this.base : v;
   }
 
   multiply(n1: number, n2: number) {
-    options.debug&&console.log(`multiply ${n1} with ${n2}`);
+    options.debug.primitive&&console.log(`multiply ${n1} with ${n2}`);
     const v = (n1 * n2) % this.base;
     return options.onlyPositivePrimitives && v < 0 ? v + this.base : v;
   }
 
   divide(numberator: number, denominator: number) {
-    options.debug&&console.log(`divide ${numberator} with ${denominator}`);
-    return searchIndexOfNumbers({ primitives: this.primitives, numberator, denominator });
+    options.debug.primitive&&console.log(`divide ${numberator} with ${denominator}`);
+    return searchIndexOfNumbers({ base: this.base, primitives: this.primitives, numberator, denominator /*: options.onlyPositivePrimitives && denominator < 0 ? denominator % this.base + this.base : denominator */});
   }
 
   get(index?: number) {
@@ -103,12 +103,12 @@ export class Primitive {
   }
 
   getInverseOf(inverseOf: number) {
-    options.debug&&console.log(`get inverse of ${inverseOf}`);
-    return searchIndexOfNumbers({ primitives: this.primitives, denominator: inverseOf });
+    options.debug.primitive&&console.log(`get inverse of ${inverseOf}`);
+    return searchIndexOfNumbers({ base: this.base, primitives: this.primitives, denominator: inverseOf });
   }
 }
 
-function searchIndexOfNumbers({ primitives, numberatorIndex, numberator = 1, denominatorIndex, denominator}: { primitives: number[], numberatorIndex?: number, numberator?: number, denominatorIndex?: number, denominator: number }) {
+function searchIndexOfNumbers({ base, primitives, numberatorIndex, numberator = 1, denominatorIndex, denominator}: { base: number, primitives: number[], numberatorIndex?: number, numberator?: number, denominatorIndex?: number, denominator: number }) {
   let canBreak = denominator ? 0 : 1;
 
   if (numberator === 0 || denominator === 0) {
@@ -120,12 +120,16 @@ function searchIndexOfNumbers({ primitives, numberatorIndex, numberator = 1, den
   }
 
   if (options.onlyPositivePrimitives && numberator < 0) {
-    numberator = (this.base + numberator) / this.base
+    numberator = numberator % base + base
   }
 
   if (options.onlyPositivePrimitives && denominator < 0) {
-    denominator = (this.base + denominator) / this.base
+    denominator = denominator % base + base
   }
+
+    if (denominator === 1) {
+      return numberator;
+    }
 
   for (let i = 0; i < primitives.length; i++) {
     if (primitives[i] === numberator) {
@@ -141,11 +145,11 @@ function searchIndexOfNumbers({ primitives, numberatorIndex, numberator = 1, den
       break;
     }
   }
-  options.debug&&console.log(`   numberatorIndex: ${numberatorIndex}; denominatorIndex: ${denominatorIndex}`);
+  options.debug.primitive&&console.log(`   numberatorIndex: ${numberatorIndex}; denominatorIndex: ${denominatorIndex}`);
 
   // Ha a számláló nagyobb, akkor elvégezni a műveletet
   if (numberatorIndex > denominatorIndex) {
-    options.debug&&console.log(`   get primitive at index ${numberatorIndex - denominatorIndex - 1}`);
+    options.debug.primitive&&console.log(`   get primitive at index ${numberatorIndex - denominatorIndex - 1}`);
     return primitives[numberatorIndex - denominatorIndex - 1];
   }
   // Ha kisebb, akkor nagyobbá alakítani
@@ -155,8 +159,8 @@ function searchIndexOfNumbers({ primitives, numberatorIndex, numberator = 1, den
     numberator = 1;
     denominator = undefined;
 
-    options.debug&&console.log('   call search index of numbers');
-    return searchIndexOfNumbers({ primitives, numberatorIndex, numberator, denominatorIndex, denominator});
+    options.debug.primitive&&console.log('   call search index of numbers');
+    return searchIndexOfNumbers({ base, primitives, numberatorIndex, numberator, denominatorIndex, denominator});
   }
   // Ha egyenlőek, akkor 1 az érték
   else { 
@@ -169,6 +173,10 @@ export function getPrimeFactorDivision(h: number): PrimeFactorDivision[] {
   let power: number = 0;
   const halfOfH = h >> 1;
   const pfd: PrimeFactorDivision[] = [];
+
+  if (h === 2 || h === 3) {
+    return [{ prime: h, power: 1 }];
+  }
 
   while (h > 0 && halfOfH >= prime) {
     if (h % prime === 0) {

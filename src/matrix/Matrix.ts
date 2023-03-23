@@ -1,5 +1,5 @@
 import { Primitive } from "./Primitive";
-import { Vec2 } from "./types";
+import { MatrixVec, Vec2 } from "./types";
 import options from '../../.config.json';
 
 abstract class Matrix {
@@ -37,7 +37,26 @@ abstract class Matrix {
     // Mindkettő
     if (pos?.x !== undefined && pos?.y !== undefined) return this.array[pos.y][pos.x];
   }
+  equals(b: Matrix) {
+    const array = b.get();
 
+    return !this.array.some((row, outer) => row.some((col, inner) => col !== array[outer][inner]))
+  }
+
+  static FillMatrix(width: number, height: number, fill: number): number[][] {
+    const matrix = new Array<number[]>(height);
+    for (let outerIndex = 0; outerIndex < height; outerIndex++) {
+      matrix[outerIndex] = new Array<number>(width);
+      for (let innerIndex = 0; innerIndex < width; innerIndex++) {
+        matrix[outerIndex][innerIndex] = fill;
+      }
+    }
+
+    return matrix;
+  }
+  static NullMatrix(width: number, height: number): number[][] {
+    return Matrix.FillMatrix(width, height, 0);
+  }
   static UnitMatrix(width: number, height: number): number[][] {
     const matrix = new Array<number[]>(height);
     for (let outerIndex = 0; outerIndex < height; outerIndex++) {
@@ -56,8 +75,9 @@ abstract class Matrix {
 }
 
 export class BasicMatrix extends Matrix {
-  constructor(array: number[][], width?: number) {
+  constructor(array: number[][]) {
     super();
+    options.debug.matrix&&console.log('BasicMatrix constructor');
   
     if (array && array.length > 0) {
       this.array = [...array];
@@ -73,7 +93,7 @@ export class BasicMatrix extends Matrix {
     return this.array ? this.array.length : 0;
   }
   add(b: Matrix | number) {
-    options.debug&&console.log('Add two Basic Matrix');
+    options.debug.matrix&&console.log('Add two Basic Matrix');
     if (typeof b === 'number') {
       const newArray = doOnMatrix(this.array, b, (a, b) => a + b);
 
@@ -86,12 +106,12 @@ export class BasicMatrix extends Matrix {
     
     const newArray = doOnMatrix(this.array, b.get() as number[][], (a, b) => a + b);
 
-    options.debug&&console.log();
+    options.debug.matrix&&console.log();
 
     return new BasicMatrix(newArray);
   }
   multiply(b: Matrix | number) {
-    options.debug&&console.log('Multiply two Base Matrix')
+    options.debug.matrix&&console.log('Multiply two Base Matrix')
     if (typeof b === 'number') {
       const newArray = doOnMatrix(this.array, b, (a, b) => a * b);
 
@@ -129,6 +149,9 @@ export class BasicMatrix extends Matrix {
 
     return new BasicMatrix(newArray);
   }
+  pivote(): number[][] {
+    return generalPivote.call(this, (a: number, b: number) => a / b);
+  }
   determinant(): number {
     return calculateDeterminant(this.array);
   }
@@ -139,6 +162,7 @@ export class BaseMatrix extends Matrix {
 
   constructor(array: number[][], primitives: Primitive) {
     super();
+    options.debug.matrix&&console.log('BaseMatrix constructor');
 
     if (array && array.length > 0) {
       this.primitives = primitives;
@@ -155,7 +179,7 @@ export class BaseMatrix extends Matrix {
     return this.array ? this.array.length : 0;
   }
   add(b: number | Matrix): Matrix {
-    options.debug&&console.log('Add two Base Matrix');
+    options.debug.matrix&&console.log('Add two Base Matrix');
     if (typeof b === 'number') {
       return new BaseMatrix(this.array.map((row) => row.map((col) => this.primitives.add(col, b))), this.primitives);
     }
@@ -166,12 +190,12 @@ export class BaseMatrix extends Matrix {
 
     const newArray = doOnMatrix(this.array, b.get() as number[][], (a, b) => this.primitives.add(a, b));
 
-    options.debug&&console.log();
+    options.debug.matrix&&console.log();
 
     return new BaseMatrix(newArray, this.primitives);
   }
   multiply(b: number | Matrix): Matrix {
-    options.debug&&console.log('Multiply two Base Matrix')
+    options.debug.matrix&&console.log('Multiply two Base Matrix')
     if (typeof b === 'number') {
       return new BaseMatrix(this.array.map((row) => row.map((col) => this.primitives.multiply(col, b))), this.primitives);
     }
@@ -184,13 +208,13 @@ export class BaseMatrix extends Matrix {
 
     for (let row = 0; row < this.getHeight(); row++) {
       newArray[row] = new Array<number>(b.getWidth());
-      options.debug&&console.log(`  ${row + 1}. row`);
+      options.debug.matrix&&console.log(`  ${row + 1}. row`);
 
       for (let column = 0; column < b.getWidth(); column++) {
           let element: number = 0;
           for (let iterator = 0; iterator < this.getWidth(); iterator++) {
             element += this.array[row][iterator] * (b.get({ x: column, y: iterator }) as number)
-            options.debug&&console.log(`   ${this.array[row][iterator]} * ${b.get({ x: column, y: iterator })} = ${element} `)
+            options.debug.matrix&&console.log(`   ${this.array[row][iterator]} * ${b.get({ x: column, y: iterator })} = ${element} `)
         }
         newArray[row][column] = element % this.getBase();
       }
@@ -212,12 +236,8 @@ export class BaseMatrix extends Matrix {
   getBase() {
     return this.primitives.getBase();
   }
-  // 1. pdf 17. és 26. oldalán találhatók a szükséges képletek
-  getParityMatrixFromGenerator() {
-    throw new Error('Nincs implementálva!');
-  }
-  getGeneratorMatrixFromParity() {
-    throw new Error('Nincs implementálva!');
+  pivote(selectedParam?: MatrixVec[]): number[][] {
+    return generalPivote.call(this, (a: number, b: number) => this.primitives.divide(a, b), selectedParam);
   }
   determinant(): number {
     const v = calculateDeterminant(this.array) % this.getBase();
@@ -225,11 +245,104 @@ export class BaseMatrix extends Matrix {
   }
 }
 
+function generalPivote(this: {array: number[][], getHeight: () => number, getWidth: () => number, print: () => void}, dividerFunc: (a: number, b: number) => number, selectedParam: MatrixVec[] = []): number[][] {
+    let selectedRow: number,
+        selectedCol: number,
+        calculated: MatrixVec[] = selectedParam,
+        wrongFields: MatrixVec[] = [];
+    
+    const shoudCalculateNextStep = calculated.length === 0;
+    options.debug.matrix&&console.log(`   pivote matrix of ${this.getHeight()}x${this.getWidth()}`);
+
+    // Pivotálás sorról-sorra
+    for(let iterator = 0; iterator < this.getHeight(); iterator++) {
+      // Egy oszlop kiválasztása
+      if (wrongFields.length >= this.getHeight() * this.getWidth()) {
+        throw new Error('Túl sok hiba keletkezett!');
+      }
+      try {
+      if (shoudCalculateNextStep) {
+        const { row, col } = get1IfPossible(this.array, calculated, wrongFields);
+        selectedRow = row;
+        selectedCol = col;
+      } else {
+        selectedRow = calculated[iterator].row;
+        selectedCol = calculated[iterator].col;
+      }
+      
+      options.debug.matrix&&console.log(`   current row: ${selectedRow}, col: ${selectedCol}\n`);
+
+      // A sorok kiszámolása
+      for(let row = 0; row < this.getHeight(); row++) {
+        // Ha a jelenleg kiválaszott sorba lépünk, átugorjuk
+        if (selectedRow === row) continue;
+        for(let col = 0; col < this.getWidth(); col++) {
+          // Ha már kiszámolt oszlopba lépünk átugorjuk
+          if (calculated.some((calc) => calc.col === col)) continue;
+          const divided = dividerFunc(this.array[selectedRow][selectedCol] * this.array[row][col] - this.array[row][selectedCol] * this.array[selectedRow][col], this.array[selectedRow][selectedCol])
+
+          options.debug.matrix&&console.log(`   ${this.array[row][col]} ---> ${divided} = (${this.array[selectedRow][selectedCol]} * ${this.array[row][col]} - ${this.array[row][selectedCol]} * ${this.array[selectedRow][col]}) / ${this.array[selectedRow][selectedCol]}`);
+
+          this.array[row][col] = divided;
+        }
+      }
+
+      // A kiválasztott oszlop nullázása
+      this.array.forEach((row, index) => {
+        if (index !== selectedRow) {
+          row[selectedCol] = 0;
+        }
+      })
+
+      // A kiválasztott sor elemeit elosztani a kiválaszott elemmel
+      this.array[selectedRow] = this.array[selectedRow].map((col) => col === 0 ? 0 : dividerFunc(col, this.array[selectedRow][selectedCol]));
+
+      // A kiválaszott elem 1
+      this.array[selectedRow][selectedCol] = 1;
+
+      options.debug.matrix&&this.print();
+      wrongFields = [];
+      } catch (err) {
+        options.debug.matrix&&console.log(`   selected [${selectedCol};${selectedRow}] element caused error!\n`);
+        wrongFields.push({ row: selectedRow, col: selectedCol });
+        options.debug.matrix&&console.log('   list of wrong fields:', wrongFields);
+        options.debug.matrix&&console.log('   old selected element array:', calculated);
+        calculated.pop();
+        options.debug.matrix&&console.log('   new selected element array:', calculated);
+        iterator--;
+      }
+    }
+
+    options.debug.matrix&&console.log('   all selected elements:', calculated);
+    
+    let isFound = false;
+    // Miután végigmentünk a mátrixon, beszúrni és rendezni kell
+    for (let i = 0; i < this.getWidth(); i++) {
+      isFound = false;
+
+      for (let c of calculated) {
+        if (c.col === i) {
+          isFound = true;
+          break;
+        }
+      }
+      if (!isFound) {
+        calculated.push({ row: calculated.length, col: i });
+        const newRow = Array(this.getWidth()).fill(0);
+        newRow[i] = -1;
+        this.array.push(newRow);
+      }
+    }
+    calculated.sort((a, b) => a.col - b.col);
+    
+    return calculated.map((c) => this.array[c.row]);
+}
+
 function calculateDeterminant(a: number[][]): number {
   if (a.length !== a[0].length) {
     throw new Error('Determinánst számolni csak azonos szélességű és magasságú mátrixon lehet!');
   }
-  options.debug&&console.log(`calculate determinant a ${a.length}x${a[0].length} matrix`);
+  options.debug.matrix&&console.log(`calculate determinant a ${a.length}x${a[0].length} matrix`);
 
   return determinantOf(a);
 } 
@@ -239,7 +352,7 @@ function determinantOf(
   ignoreRow: number = -1,
   ignoreCol: number[]= [],
 ): number {
-  options.debug&&console.log(`   determinant: ignoreCol: [${ignoreCol.join(', ')}], ignoreRow: ${ignoreRow + 1}`);
+  options.debug.matrix&&console.log(`   determinant: ignoreCol: [${ignoreCol.join(', ')}], ignoreRow: ${ignoreRow + 1}`);
   
   let i: number;
   // Ha a táblában már csak 2x2-es mátrix van
@@ -267,13 +380,13 @@ function determinantOf(
       continue;
     }
 
-    options.debug&&console.log(`   determinant: current element: ${a[ignoreRow + 1][i]}`);
+    options.debug.matrix&&console.log(`   determinant: current element: ${a[ignoreRow + 1][i]}`);
 
     ignoreCol.push(i);
     const calcValue = a[ignoreRow + 1][i] * determinantOf(a, ignoreRow + 1 , ignoreCol);
     ignoreCol.pop();
 
-    options.debug&&console.log(`   determinant: [${calcValue}]`);
+    options.debug.matrix&&console.log(`   determinant: [${calcValue}]`);
 
     sum += index % 2 === 0 
       ? calcValue
@@ -281,7 +394,7 @@ function determinantOf(
 
     index++;
   }
-  options.debug&&console.log(`\tdeterminant: current sum ${sum}`);
+  options.debug.matrix&&console.log(`\tdeterminant: current sum ${sum}`);
 
   return sum;
 }
@@ -292,4 +405,33 @@ function doOnMatrix(a: number[][], b: number[][] | number, callback: (a: number,
   } else {
     return a.map((row, outer) => row.map((col, inner) => callback(col, b[outer][inner])))
   }
+}
+
+function get1IfPossible(a: number[][], c: MatrixVec[], wrongFields?: MatrixVec[]) {
+  let selected: MatrixVec;
+  for(let i = 0; i < a.length; i++) {
+    if (c.some((calc) => calc.row === i)) {
+      options.debug.matrix&&console.log(`\tskipping row ${i}`);
+      continue;
+    }
+    for(let j = 0; j < a[i].length; j++) {
+      if (c.some((calc) => calc.col === j) || a[i][j] === 0 || (wrongFields?.length > 0 && wrongFields.some((wf) => wf.col === j && wf.row === i) )) {
+        options.debug.matrix&&console.log(`\tskipping col ${j}`);
+        continue;
+      }
+
+      if (a[i][j] === 1) {
+        selected = { row: i, col: j };
+        c.push(selected);
+        return selected;
+      }
+
+      if (!selected) {
+        selected = { row: i, col: j };
+      }
+    }
+  }
+
+  c.push(selected);
+  return selected;
 }
