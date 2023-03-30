@@ -1,8 +1,9 @@
 {
   "debug": {
     "primitive": false,
-    "matrix": false
+    "matrix": true
   },
   "onlyPrime": true,
-  "onlyPositivePrimitives": true
+  "onlyPositivePrimitives": true,
+  "canDivide0Primitives": true
 }

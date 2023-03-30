@@ -111,8 +111,24 @@ export class Primitive {
 function searchIndexOfNumbers({ base, primitives, numberatorIndex, numberator = 1, denominatorIndex, denominator}: { base: number, primitives: number[], numberatorIndex?: number, numberator?: number, denominatorIndex?: number, denominator: number }) {
   let canBreak = denominator ? 0 : 1;
 
-  if (numberator === 0 || denominator === 0) {
-    throw new Error('Nem lehet 0 se a számláló, se a nevező!')
+  if (numberator >= base) {
+    numberator %= base;
+  }
+
+  if (numberator === 0) {
+    if (options.canDivide0Primitives) {
+      return 0;
+    } else {
+      throw new Error('Nem lehet 0 a számláló!')
+    }
+  }
+
+  if (denominator >= base) {
+    denominator %= base;
+  }
+
+  if (denominator === 0) {
+    throw new Error('Nem lehet 0 a nevező!')
   }
 
   if (numberator === denominator) {
@@ -127,9 +143,9 @@ function searchIndexOfNumbers({ base, primitives, numberatorIndex, numberator = 
     denominator = denominator % base + base
   }
 
-    if (denominator === 1) {
-      return numberator;
-    }
+  if (denominator === 1) {
+    return numberator;
+  }
 
   for (let i = 0; i < primitives.length; i++) {
     if (primitives[i] === numberator) {

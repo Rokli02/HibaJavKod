@@ -149,8 +149,8 @@ export class BasicMatrix extends Matrix {
 
     return new BasicMatrix(newArray);
   }
-  pivote(): number[][] {
-    return generalPivote.call(this, (a: number, b: number) => a / b);
+  pivote(): BasicMatrix {
+    return new BasicMatrix(generalPivote.call(this, (a: number, b: number) => a / b));
   }
   determinant(): number {
     return calculateDeterminant(this.array);
@@ -216,7 +216,7 @@ export class BaseMatrix extends Matrix {
             element += this.array[row][iterator] * (b.get({ x: column, y: iterator }) as number)
             options.debug.matrix&&console.log(`   ${this.array[row][iterator]} * ${b.get({ x: column, y: iterator })} = ${element} `)
         }
-        newArray[row][column] = element % this.getBase();
+        newArray[row][column] = options.onlyPositivePrimitives && element < 0 ? element % this.getBase() + this.getBase() : element % this.getBase();
       }
     }
 
@@ -236,8 +236,8 @@ export class BaseMatrix extends Matrix {
   getBase() {
     return this.primitives.getBase();
   }
-  pivote(selectedParam?: MatrixVec[]): number[][] {
-    return generalPivote.call(this, (a: number, b: number) => this.primitives.divide(a, b), selectedParam);
+  pivote(selectedParam?: MatrixVec[]): BaseMatrix {
+    return new BaseMatrix(generalPivote.call(this, (a: number, b: number) => this.primitives.divide(a, b), selectedParam), this.primitives);
   }
   determinant(): number {
     const v = calculateDeterminant(this.array) % this.getBase();
@@ -248,28 +248,29 @@ export class BaseMatrix extends Matrix {
 function generalPivote(this: {array: number[][], getHeight: () => number, getWidth: () => number, print: () => void}, dividerFunc: (a: number, b: number) => number, selectedParam: MatrixVec[] = []): number[][] {
     let selectedRow: number,
         selectedCol: number,
-        calculated: MatrixVec[] = selectedParam,
+        calculated: MatrixVec[] = [],
         wrongFields: MatrixVec[] = [];
-    
-    const shoudCalculateNextStep = calculated.length === 0;
+    const array = this.array.map((row) => row.map((c) => c));
+    const shoudCalculateNextStep = selectedParam.length === 0;
     options.debug.matrix&&console.log(`   pivote matrix of ${this.getHeight()}x${this.getWidth()}`);
 
     // Pivotálás sorról-sorra
-    for(let iterator = 0; iterator < this.getHeight(); iterator++) {
+    for(let iterator = 0; iterator < (selectedParam?.length > 0 ? selectedParam.length : this.getHeight()); iterator++) {
       // Egy oszlop kiválasztása
-      if (wrongFields.length >= this.getHeight() * this.getWidth()) {
+      if (wrongFields.length >= (this.getHeight() - 1) * (this.getWidth() - calculated.length)) {
         throw new Error('Túl sok hiba keletkezett!');
       }
       try {
       if (shoudCalculateNextStep) {
-        const { row, col } = get1IfPossible(this.array, calculated, wrongFields);
+        const { row, col } = get1IfPossible(array, calculated, wrongFields);
         selectedRow = row;
         selectedCol = col;
       } else {
+        calculated.push({ row: selectedParam[iterator].row, col: selectedParam[iterator].col })
         selectedRow = calculated[iterator].row;
         selectedCol = calculated[iterator].col;
       }
-      
+
       options.debug.matrix&&console.log(`   current row: ${selectedRow}, col: ${selectedCol}\n`);
 
       // A sorok kiszámolása
@@ -279,36 +280,36 @@ function generalPivote(this: {array: number[][], getHeight: () => number, getWid
         for(let col = 0; col < this.getWidth(); col++) {
           // Ha már kiszámolt oszlopba lépünk átugorjuk
           if (calculated.some((calc) => calc.col === col)) continue;
-          const divided = dividerFunc(this.array[selectedRow][selectedCol] * this.array[row][col] - this.array[row][selectedCol] * this.array[selectedRow][col], this.array[selectedRow][selectedCol])
+          const divided = dividerFunc(array[selectedRow][selectedCol] * array[row][col] - array[row][selectedCol] * array[selectedRow][col], array[selectedRow][selectedCol])
 
-          options.debug.matrix&&console.log(`   ${this.array[row][col]} ---> ${divided} = (${this.array[selectedRow][selectedCol]} * ${this.array[row][col]} - ${this.array[row][selectedCol]} * ${this.array[selectedRow][col]}) / ${this.array[selectedRow][selectedCol]}`);
+          options.debug.matrix&&console.log(`   ${array[row][col]} ---> ${divided} = (${array[selectedRow][selectedCol]} * ${array[row][col]} - ${array[row][selectedCol]} * ${array[selectedRow][col]}) / ${array[selectedRow][selectedCol]}`);
 
-          this.array[row][col] = divided;
+          array[row][col] = divided;
         }
       }
 
       // A kiválasztott oszlop nullázása
-      this.array.forEach((row, index) => {
+      array.forEach((row, index) => {
         if (index !== selectedRow) {
           row[selectedCol] = 0;
         }
       })
 
       // A kiválasztott sor elemeit elosztani a kiválaszott elemmel
-      this.array[selectedRow] = this.array[selectedRow].map((col) => col === 0 ? 0 : dividerFunc(col, this.array[selectedRow][selectedCol]));
+      array[selectedRow] = array[selectedRow].map((col) => col === 0 ? 0 : dividerFunc(col, array[selectedRow][selectedCol]));
 
       // A kiválaszott elem 1
-      this.array[selectedRow][selectedCol] = 1;
+      array[selectedRow][selectedCol] = 1;
 
-      options.debug.matrix&&this.print();
+      options.debug.matrix&&console.log(array);
       wrongFields = [];
       } catch (err) {
         options.debug.matrix&&console.log(`   selected [${selectedCol};${selectedRow}] element caused error!\n`);
         wrongFields.push({ row: selectedRow, col: selectedCol });
-        options.debug.matrix&&console.log('   list of wrong fields:', wrongFields);
-        options.debug.matrix&&console.log('   old selected element array:', calculated);
+        // options.debug.matrix&&console.log('   list of wrong fields:', wrongFields);
+        // options.debug.matrix&&console.log('   old selected element array:', calculated);
         calculated.pop();
-        options.debug.matrix&&console.log('   new selected element array:', calculated);
+        // options.debug.matrix&&console.log('   new selected element array:', calculated);
         iterator--;
       }
     }
@@ -330,12 +331,13 @@ function generalPivote(this: {array: number[][], getHeight: () => number, getWid
         calculated.push({ row: calculated.length, col: i });
         const newRow = Array(this.getWidth()).fill(0);
         newRow[i] = -1;
-        this.array.push(newRow);
+        array.push(newRow);
       }
     }
     calculated.sort((a, b) => a.col - b.col);
+    options.debug.matrix&&console.log('   sorted matrix:', calculated.map((c) => array[c.row]));
     
-    return calculated.map((c) => this.array[c.row]);
+    return calculated.map((c) => array[c.row]).map((row, rowIndex, arr) => row.map((_, colIndex) => arr[colIndex][rowIndex] < 0 ? dividerFunc(arr[colIndex][rowIndex], 1) : arr[colIndex][rowIndex])).filter((row) => row.reduce((sum, cur) => sum += cur, 0) !== 1);
 }
 
 function calculateDeterminant(a: number[][]): number {
