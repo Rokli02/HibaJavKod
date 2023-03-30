@@ -37,8 +37,8 @@ abstract class Matrix {
     // Mindkettő
     if (pos?.x !== undefined && pos?.y !== undefined) return this.array[pos.y][pos.x];
   }
-  equals(b: Matrix) {
-    const array = b.get();
+  equals(b: Matrix | number[][]) {
+    const array = b instanceof Matrix ? b.get() : b;
 
     return !this.array.some((row, outer) => row.some((col, inner) => col !== array[outer][inner]))
   }
