@@ -5,7 +5,7 @@ import options from '../../.config.json';
 export class Primitive {
   private primitives: number[];
   private readonly base: number;
-  constructor(base: number) {
+  constructor(base: number, starterGamma?: number) {
     if (options.onlyPrime && !isPrime(base)) {
       throw new Error('A bázisnak prím számnak kell lennie!');
     }
@@ -15,43 +15,49 @@ export class Primitive {
     this.primitives = new Array<number>(base - 1);
     this.base = base;
 
-    // Kiszámolni a bázist
+
+    let firstGamma: number;
     const h = base - 1;
-    const primeFactor = getPrimeFactorDivision(h);
-    if (!primeFactor || primeFactor.length === 0) {
-      throw new Error(`A bázisnak (${h}) nem létezik prímtényezős felbontása!`);
+    if (!starterGamma) {
+      // Kiszámolni a bázist
+      const primeFactor = getPrimeFactorDivision(h);
+      if (!primeFactor || primeFactor.length === 0) {
+        throw new Error(`A bázisnak (${h}) nem létezik prímtényezős felbontása!`);
+      }
+  
+      options.debug.primitive&&console.log('Prime factors:')
+      options.debug.primitive&&primeFactor.forEach((pf) => console.log(`   ${pf.prime}^${pf.power}`))
+      // Ha bármelyik eleme 0, akkor error -> nem jó bázis (lehet hogy nem primitív)
+      // Alfák kiszámolása
+      const alphaValues = primeFactor.map((pf, index) => {
+        const power = h / pf.prime;
+        let beta: number;
+  
+        options.debug.primitive&&console.log(`   ${(index + 1)}. beta: prime: ${pf.prime}; power: ${power}`);
+        for(let i = 1; i <= h; i++) {
+          const f = Math.pow(i, power) - 1;
+          options.debug.primitive&&console.log(`\tf${i}: ${f} mod ${this.base} = ${f % this.base}`);
+          if (f % this.base !== 0) {
+            beta = i;
+            break;
+          }
+        }
+  
+        if (!beta) {
+          throw new Error(`Nem sikerült béta értéket találni ${pf.prime}^${pf.power} szám esetén!`);
+        }
+        options.debug.primitive&&console.log(`\tbeta value: ${beta}`);
+        options.debug.primitive&&console.log(`\talfa = ${beta}^(${h} / ${pf.prime}^${pf.power}) = ${beta}^(${h / Math.pow(pf.prime, pf.power)}) = ${Math.pow(beta, (h / Math.pow(pf.prime, pf.power)))} = ${Math.pow(beta, (h / Math.pow(pf.prime, pf.power))) % this.base}`);
+  
+        return Math.pow(beta, (h / Math.pow(pf.prime, pf.power))) % this.base;
+      });
+      options.debug.primitive&&console.log('   alphas:', alphaValues);
+      firstGamma = alphaValues.reduce((sum, current) => { return sum *= current }, 1);
+    } else {
+      firstGamma = starterGamma;
     }
 
-    options.debug.primitive&&console.log('Prime factors:')
-    options.debug.primitive&&primeFactor.forEach((pf) => console.log(`   ${pf.prime}^${pf.power}`))
-    // Ha bármelyik eleme 0, akkor error -> nem jó bázis (lehet hogy nem primitív)
-    // Alfák kiszámolása
-    const alphaValues = primeFactor.map((pf, index) => {
-      const power = h / pf.prime;
-      let beta: number;
-
-      options.debug.primitive&&console.log(`   ${(index + 1)}. beta: prime: ${pf.prime}; power: ${power}`);
-      for(let i = 1; i <= h; i++) {
-        const f = Math.pow(i, power) - 1;
-        options.debug.primitive&&console.log(`\tf${i}: ${f} mod ${this.base} = ${f % this.base}`);
-        if (f % this.base !== 0) {
-          beta = i;
-          break;
-        }
-      }
-
-      if (!beta) {
-        throw new Error(`Nem sikerült béta értéket találni ${pf.prime}^${pf.power} szám esetén!`);
-      }
-      options.debug.primitive&&console.log(`\tbeta value: ${beta}`);
-      options.debug.primitive&&console.log(`\talfa = ${beta}^(${h} / ${pf.prime}^${pf.power}) = ${beta}^(${h / Math.pow(pf.prime, pf.power)}) = ${Math.pow(beta, (h / Math.pow(pf.prime, pf.power)))} = ${Math.pow(beta, (h / Math.pow(pf.prime, pf.power))) % this.base}`);
-
-      return Math.pow(beta, (h / Math.pow(pf.prime, pf.power))) % this.base;
-    });
-    options.debug.primitive&&console.log('   alphas:', alphaValues);
-
     // Alfákat összeadni, így kapjuk meg az első rendű gammát
-    const firstGamma = alphaValues.reduce((sum, current) => { return sum *= current }, 1);
     this.primitives[0] = options.onlyPositivePrimitives && firstGamma < 0
       ? (this.base + (firstGamma % this.base))
       : (firstGamma % this.base);
@@ -83,7 +89,7 @@ export class Primitive {
 
   divide(numberator: number, denominator: number) {
     options.debug.primitive&&console.log(`divide ${numberator} with ${denominator}`);
-    return searchIndexOfNumbers({ base: this.base, primitives: this.primitives, numberator, denominator /*: options.onlyPositivePrimitives && denominator < 0 ? denominator % this.base + this.base : denominator */});
+    return searchIndexOfNumbers({ base: this.base, primitives: this.primitives, numberator, denominator });
   }
 
   get(index?: number) {
