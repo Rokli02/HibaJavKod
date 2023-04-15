@@ -16,7 +16,7 @@ abstract class Matrix {
       return console.log('Nem létezik tömb!');
     }
 
-    this.array.forEach((ar) => console.log(ar));
+    this.array.forEach((ar) => console.log(ar.map((e) => e.toString().padEnd(6, ' ')).join(' ')));
     console.log('\n');
   }
   /**
@@ -236,8 +236,8 @@ export class BaseMatrix extends Matrix {
   getBase() {
     return this.primitives.getBase();
   }
-  pivote(selectedParam?: MatrixVec[]): BaseMatrix {
-    return new BaseMatrix(generalPivote.call(this, (a: number, b: number) => this.primitives.divide(a, b), selectedParam), this.primitives);
+  pivote(selectedParam?: MatrixVec[], skipParam?: MatrixVec[]): BaseMatrix {
+    return new BaseMatrix(generalPivote.call(this, (a: number, b: number) => this.primitives.divide(a, b), selectedParam, skipParam), this.primitives);
   }
   determinant(): number {
     const v = calculateDeterminant(this.array) % this.getBase();
@@ -245,17 +245,17 @@ export class BaseMatrix extends Matrix {
   }
 }
 
-function generalPivote(this: {array: number[][], getHeight: () => number, getWidth: () => number, print: () => void}, dividerFunc: (a: number, b: number) => number, selectedParam: MatrixVec[] = []): number[][] {
+function generalPivote(this: {array: number[][], getHeight: () => number, getWidth: () => number, print: () => void}, dividerFunc: (a: number, b: number) => number, selectedParam: MatrixVec[] = [], skipParam: MatrixVec[] = []): number[][] {
     let selectedRow: number,
         selectedCol: number,
-        calculated: MatrixVec[] = [],
+        calculated: MatrixVec[] = skipParam,
         wrongFields: MatrixVec[] = [];
     const array = this.array.map((row) => row.map((c) => c));
     const shoudCalculateNextStep = selectedParam.length === 0;
     options.debug.matrix&&console.log(`   pivote matrix of ${this.getHeight()}x${this.getWidth()}`);
 
     // Pivotálás sorról-sorra
-    for(let iterator = 0; iterator < (selectedParam?.length > 0 ? selectedParam.length : this.getHeight()); iterator++) {
+    for(let iterator = calculated.length; iterator < (selectedParam?.length > 0 ? selectedParam.length : this.getHeight()); iterator++) {
       // Egy oszlop kiválasztása
       if (wrongFields.length >= (this.getHeight() - 1) * (this.getWidth() - calculated.length)) {
         throw new Error('Túl sok hiba keletkezett!');
