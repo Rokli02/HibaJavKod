@@ -12,7 +12,7 @@ const matrix = new BaseMatrix([
   [8, 8, 3, 11, 7, 2],
 ], primitive);
 
-const pivot = matrix.pivote([], [{ col: 5, row: 0 }]);
+const pivot = matrix.pivote();
 pivot.transpose().print();
 
 timer.stopPrint();

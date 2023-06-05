@@ -142,11 +142,19 @@ function searchIndexOfNumbers({ base, primitives, numberatorIndex, numberator = 
   }
 
   if (options.onlyPositivePrimitives && numberator < 0) {
-    numberator = numberator % base + base
+    numberator %= base;
+
+    if (numberator < 0) {
+      numberator += base;
+    }
   }
 
   if (options.onlyPositivePrimitives && denominator < 0) {
-    denominator = denominator % base + base
+    denominator %= base;
+
+    if (denominator < 0) {
+      denominator += base;
+    }
   }
 
   if (denominator === 1) {

@@ -17,7 +17,6 @@ abstract class Matrix {
     }
 
     this.array.forEach((ar) => console.log(ar.map((e) => e.toString().padEnd(6, ' ')).join(' ')));
-    console.log('\n');
   }
   /**
    * A mátrixból kiveszi azt a sort/oszlopot/elemet amikre ráillik a paraméterben megadott pozíció.
@@ -149,8 +148,14 @@ export class BasicMatrix extends Matrix {
 
     return new BasicMatrix(newArray);
   }
-  pivote(): BasicMatrix {
-    return new BasicMatrix(generalPivote.call(this, (a: number, b: number) => a / b));
+  pivote(selectedParam?: MatrixVec[], skipParam?: MatrixVec[]): BasicMatrix {
+    return new BasicMatrix(generalPivote.call(
+        this,
+        (a: number, b: number) => a / b,
+        selectedParam,
+        skipParam,
+      ),
+    );
   }
   determinant(): number {
     return calculateDeterminant(this.array);
@@ -237,7 +242,15 @@ export class BaseMatrix extends Matrix {
     return this.primitives.getBase();
   }
   pivote(selectedParam?: MatrixVec[], skipParam?: MatrixVec[]): BaseMatrix {
-    return new BaseMatrix(generalPivote.call(this, (a: number, b: number) => this.primitives.divide(a, b), selectedParam, skipParam), this.primitives);
+    return new BaseMatrix(
+      generalPivote.call(
+        this,
+        (a: number, b: number) => this.primitives.divide(a, b),
+        selectedParam,
+        skipParam,
+      ),
+      this.primitives,
+    );
   }
   determinant(): number {
     const v = calculateDeterminant(this.array) % this.getBase();
@@ -245,7 +258,17 @@ export class BaseMatrix extends Matrix {
   }
 }
 
-function generalPivote(this: {array: number[][], getHeight: () => number, getWidth: () => number, print: () => void}, dividerFunc: (a: number, b: number) => number, selectedParam: MatrixVec[] = [], skipParam: MatrixVec[] = []): number[][] {
+function generalPivote(
+  this: {
+    array: number[][],
+    getHeight: () => number,
+    getWidth: () => number,
+    print: () => void
+  },
+  dividerFunc: (a: number, b: number) => number,
+  selectedParam: MatrixVec[] = [],
+  skipParam: MatrixVec[] = []
+): number[][] {
     let selectedRow: number,
         selectedCol: number,
         calculated: MatrixVec[] = skipParam,
@@ -280,9 +303,10 @@ function generalPivote(this: {array: number[][], getHeight: () => number, getWid
         for(let col = 0; col < this.getWidth(); col++) {
           // Ha már kiszámolt oszlopba lépünk átugorjuk
           if (calculated.some((calc) => calc.col === col)) continue;
-          const divided = dividerFunc(array[selectedRow][selectedCol] * array[row][col] - array[row][selectedCol] * array[selectedRow][col], array[selectedRow][selectedCol])
+          const numToDivide = array[selectedRow][selectedCol] * array[row][col] - array[row][selectedCol] * array[selectedRow][col];
+          const divided = dividerFunc(numToDivide, array[selectedRow][selectedCol]);
 
-          options.debug.matrix&&console.log(`   ${array[row][col]} ---> ${divided} = (${array[selectedRow][selectedCol]} * ${array[row][col]} - ${array[row][selectedCol]} * ${array[selectedRow][col]}) / ${array[selectedRow][selectedCol]}`);
+          options.debug.matrix&&console.log(`   ${array[row][col]} ---> ${divided} = (${array[selectedRow][selectedCol]} * ${array[row][col]} - ${array[row][selectedCol]} * ${array[selectedRow][col]}) / ${array[selectedRow][selectedCol]} = ${numToDivide} / ${array[selectedRow][selectedCol]}`);
 
           array[row][col] = divided;
         }
@@ -301,7 +325,7 @@ function generalPivote(this: {array: number[][], getHeight: () => number, getWid
       // A kiválaszott elem 1
       array[selectedRow][selectedCol] = 1;
 
-      options.debug.matrix&&console.log(array);
+      options.debug.matrix&&printMatrixArray(array);
       wrongFields = [];
       } catch (err) {
         options.debug.matrix&&console.log(`   selected [${selectedCol};${selectedRow}] element caused error!\n`);
@@ -316,6 +340,9 @@ function generalPivote(this: {array: number[][], getHeight: () => number, getWid
 
     options.debug.matrix&&console.log('   all selected elements:', calculated);
     
+    console.log('\nMatrix at the end of pivote:');
+    console.log(array.forEach((row, index) => console.log(`   columnˇ${calculated.find(v => v.row === index).col + 1}: ${row.map((e) => e.toString().padEnd(6, ' ')).join(' ')}\n`)));
+
     let isFound = false;
     // Miután végigmentünk a mátrixon, beszúrni és rendezni kell
     for (let i = 0; i < this.getWidth(); i++) {
@@ -335,7 +362,8 @@ function generalPivote(this: {array: number[][], getHeight: () => number, getWid
       }
     }
     calculated.sort((a, b) => a.col - b.col);
-    options.debug.matrix&&console.log('   sorted matrix:', calculated.map((c) => array[c.row]));
+    options.debug.matrix&&console.log('   sorted matrix:');
+    options.debug.matrix&&printMatrixArray(calculated.map((c) => array[c.row]));
     
     return calculated.map((c) => array[c.row]).map((row, rowIndex, arr) => row.map((_, colIndex) => arr[colIndex][rowIndex] < 0 ? dividerFunc(arr[colIndex][rowIndex], 1) : arr[colIndex][rowIndex])).filter((row) => row.reduce((sum, cur) => sum += cur, 0) !== 1);
 }
@@ -436,4 +464,8 @@ function get1IfPossible(a: number[][], c: MatrixVec[], wrongFields?: MatrixVec[]
 
   c.push(selected);
   return selected;
+}
+
+function printMatrixArray(array: number[][]) {
+  array.forEach((row) => console.log('\t' + row.map((e) => e.toString().padEnd(6, ' ')).join(' ')))
 }
