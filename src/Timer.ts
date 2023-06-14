@@ -4,6 +4,10 @@ export class Timer {
   duration: number;
 
   constructor() {
+    this.start();
+  }
+
+  start() {
     this._start = Date.now();
     this._end = this._start;
     this.duration = 0;

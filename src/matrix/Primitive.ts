@@ -5,6 +5,7 @@ import options from '../../.config.json';
 export class Primitive {
   private primitives: number[];
   private readonly base: number;
+
   constructor(base: number, starterGamma?: number) {
     if (options.onlyPrime && !isPrime(base)) {
       throw new Error('A bázisnak prím számnak kell lennie!');
@@ -67,7 +68,7 @@ export class Primitive {
       this.primitives[i] = (this.primitives[0] * this.primitives[i - 1]) % this.base;
     }
 
-    options.debug.primitive&&console.log('Primitive Values: ', this.primitives);
+    options.debug.primitive&&console.log('Primitive Values: \n', this.primitives.map((p, idx) => `\t${idx + 1}: ${p}`).join('\n'));
     options.debug.primitive&&console.log('\n');
   }
 
@@ -117,11 +118,11 @@ export class Primitive {
 function searchIndexOfNumbers({ base, primitives, numberatorIndex, numberator = 1, denominatorIndex, denominator}: { base: number, primitives: number[], numberatorIndex?: number, numberator?: number, denominatorIndex?: number, denominator: number }) {
   let canBreak = denominator ? 0 : 1;
 
-  if (numberator >= base) {
-    numberator %= base;
+  if ((denominator % base) === 0) {
+    throw new Error('Nem lehet 0 a nevező!')
   }
 
-  if (numberator === 0) {
+  if ((numberator % base) === 0) {
     if (options.canDivide0Primitives) {
       return 0;
     } else {
@@ -129,16 +130,12 @@ function searchIndexOfNumbers({ base, primitives, numberatorIndex, numberator = 
     }
   }
 
-  if (denominator >= base) {
+  if (numberator > base) {
+    numberator %= base;
+  }
+
+  if (denominator > base) {
     denominator %= base;
-  }
-
-  if (denominator === 0) {
-    throw new Error('Nem lehet 0 a nevező!')
-  }
-
-  if (numberator === denominator) {
-    return 1;
   }
 
   if (options.onlyPositivePrimitives && numberator < 0) {
@@ -155,6 +152,10 @@ function searchIndexOfNumbers({ base, primitives, numberatorIndex, numberator = 
     if (denominator < 0) {
       denominator += base;
     }
+  }
+
+  if (numberator === denominator) {
+    return 1;
   }
 
   if (denominator === 1) {

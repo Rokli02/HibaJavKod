@@ -2,7 +2,7 @@
   "name": "hibjavkod",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "app.js",
   "scripts": {
     "start": "tsc && node ./dist/src/app.js",
     "start:js": "node ./dist/src/app.js",

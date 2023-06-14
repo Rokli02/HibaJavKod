@@ -42,6 +42,10 @@ abstract class Matrix {
     return !this.array.some((row, outer) => row.some((col, inner) => col !== array[outer][inner]))
   }
 
+  printDimensions() {
+    console.log(`${this.array[0].length}x${this.array.length}`);
+  }
+
   static FillMatrix(width: number, height: number, fill: number): number[][] {
     const matrix = new Array<number[]>(height);
     for (let outerIndex = 0; outerIndex < height; outerIndex++) {
@@ -148,6 +152,12 @@ export class BasicMatrix extends Matrix {
 
     return new BasicMatrix(newArray);
   }
+  /**
+   * Pivotálás
+   * @param selectedParam Azokat az elemeket tartalmazó mátrix, amiket mi adhatunk meg a pivot kiszámolásához.
+   * @param skipParam Azok az elemek, amiknek az oszlopait ki szeretnénk hagyni, és sorait az adott ciklusban átugrani.
+   * @returns Pivot mátrix
+   */
   pivote(selectedParam?: MatrixVec[], skipParam?: MatrixVec[]): BasicMatrix {
     return new BasicMatrix(generalPivote.call(
         this,
@@ -218,9 +228,11 @@ export class BaseMatrix extends Matrix {
       for (let column = 0; column < b.getWidth(); column++) {
           let element: number = 0;
           for (let iterator = 0; iterator < this.getWidth(); iterator++) {
-            element += this.array[row][iterator] * (b.get({ x: column, y: iterator }) as number)
-            options.debug.matrix&&console.log(`   ${this.array[row][iterator]} * ${b.get({ x: column, y: iterator })} = ${element} `)
+            const cellValue = this.array[row][iterator] * (b.get({ x: column, y: iterator }) as number);
+            element += cellValue;
+            options.debug.matrix&&console.log(`   ${this.array[row][iterator]} * ${b.get({ x: column, y: iterator })} = ${cellValue} `)
         }
+        options.debug.matrix&&console.log(`      = ${element} `)
         newArray[row][column] = options.onlyPositivePrimitives && element < 0 ? element % this.getBase() + this.getBase() : element % this.getBase();
       }
     }
@@ -241,6 +253,12 @@ export class BaseMatrix extends Matrix {
   getBase() {
     return this.primitives.getBase();
   }
+  /**
+   * Pivotálás
+   * @param selectedParam Azokat az elemeket tartalmazó mátrix, amiket mi adhatunk meg a pivot kiszámolásához.
+   * @param skipParam Azok az elemek, amiknek az oszlopait ki szeretnénk hagyni, és sorait az adott ciklusban átugrani.
+   * @returns Pivot mátrix
+   */
   pivote(selectedParam?: MatrixVec[], skipParam?: MatrixVec[]): BaseMatrix {
     return new BaseMatrix(
       generalPivote.call(
